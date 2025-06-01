@@ -54,16 +54,21 @@
 
     /* Connecting spinner animation */
     .spinner {
-      width: 18px;
-      height: 18px;
-      border: 3px solid #007aff;
-      border-top-color: transparent;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+  width: 24px;
+  height: 24px;
+  border: 2.5px solid #007aff;       /* slightly thinner */
+  border-top-color: transparent;
+  border-radius: 50%;
+  box-shadow: 0 0 4px rgba(0, 122, 255, 0.6); /* subtle glow */
+  animation: spin 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite; /* smoother easing */
+  -webkit-font-smoothing: antialiased; /* better edges */
+  -moz-osx-font-smoothing: grayscale;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
 
     #direction {
       font-weight: 400;
