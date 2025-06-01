@@ -1,150 +1,131 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Real Joystick Visualizer via Web Serial</title>
-<style>
-  body {
-    margin: 0; background: #111; height: 100vh;
-    display: flex; flex-direction: column;
-    justify-content: center; align-items: center;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    user-select: none; color: #0f0;
-  }
-  #joystickBase {
-    position: relative;
-    width: 150px; height: 150px;
-    background: radial-gradient(circle at center, #222 60%, #000 100%);
-    border-radius: 50%;
-    box-shadow:
-      0 0 15px #0f0,
-      inset 0 0 20px #0a0;
-    margin-bottom: 20px;
-  }
-  #joystickKnob {
-    position: absolute;
-    top: 50%; left: 50%;
-    width: 60px; height: 60px;
-    background: linear-gradient(145deg, #0f0, #050);
-    border-radius: 50%;
-    box-shadow:
-      0 0 15px #0f0,
-      inset 0 4px 6px rgba(255,255,255,0.3),
-      inset 0 -4px 6px rgba(0,128,0,0.6);
-    transform: translate(-50%, -50%) translate(0px, 0px);
-    transition: box-shadow 0.15s ease;
-  }
-  #status {
-    font-weight: 600;
-    letter-spacing: 1px;
-  }
-  #connectBtn {
-    margin-bottom: 15px;
-    padding: 10px 20px;
-    font-weight: 700;
-    font-size: 1.1em;
-    background-color: #0a0;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    color: #000;
-    user-select: none;
-  }
-  #connectBtn:disabled {
-    background-color: #040;
-    cursor: not-allowed;
-  }
-</style>
+  <meta charset="UTF-8" />
+  <title>Joystick Bluetooth Reader</title>
+  <style>
+    body {
+      background: #111;
+      color: #0f0;
+      font-family: monospace, monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      margin: 0;
+    }
+    #status {
+      margin-bottom: 10px;
+      font-weight: bold;
+      font-size: 1.2rem;
+    }
+    #data {
+      font-size: 1.1rem;
+      white-space: pre-wrap;
+      border: 1px solid #0f0;
+      padding: 10px;
+      border-radius: 8px;
+      width: 300px;
+      text-align: center;
+      user-select: none;
+    }
+    button {
+      background: #0f0;
+      color: #000;
+      border: none;
+      padding: 10px 15px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 20px;
+      transition: background 0.3s;
+    }
+    button:hover {
+      background: #0c0;
+    }
+  </style>
 </head>
 <body>
-
-<button id="connectBtn">Connect Joystick (via Serial)</button>
-<div id="joystickBase">
-  <div id="joystickKnob"></div>
-</div>
-<div id="status">Disconnected</div>
+  <div id="status">Disconnected</div>
+  <div id="data">No data yet.</div>
+  <button id="connectBtn">Connect Bluetooth Joystick</button>
 
 <script>
   const connectBtn = document.getElementById('connectBtn');
-  const knob = document.getElementById('joystickKnob');
-  const status = document.getElementById('status');
+  const statusDiv = document.getElementById('status');
+  const dataDiv = document.getElementById('data');
 
   let port;
   let reader;
   let keepReading = false;
 
-  function normalizeJoystickValue(val) {
-    // Map 0-1023 to -50 to +50 px
-    return ((val - 512) / 512) * 50;
+  function updateStatus(text, color = '#0f0') {
+    statusDiv.textContent = text;
+    statusDiv.style.color = color;
   }
 
-  function updateJoystick(xRaw, yRaw, buttonState) {
-    const x = normalizeJoystickValue(xRaw);
-    const y = normalizeJoystickValue(yRaw);
-    knob.style.transform = `translate(-50%, -50%) translate(${x}px, ${y}px)`;
-    if (buttonState === 0) {
-      knob.style.boxShadow =
-        '0 0 25px #f00, inset 0 4px 6px rgba(255,0,0,0.7), inset 0 -4px 6px rgba(128,0,0,0.9)';
-      status.textContent = `Button Pressed! X:${xRaw}, Y:${yRaw}`;
-    } else {
-      knob.style.boxShadow =
-        '0 0 15px #0f0, inset 0 4px 6px rgba(255,255,255,0.3), inset 0 -4px 6px rgba(0,128,0,0.6)';
-      status.textContent = `X: ${xRaw} | Y: ${yRaw} | Button Released`;
-    }
+  function updateJoystick(x, y, button) {
+    dataDiv.textContent = `X: ${x}\nY: ${y}\nButton: ${button === 0 ? 'Pressed' : 'Released'}`;
   }
 
   async function readLoop() {
-    const textDecoder = new TextDecoderStream();
-    const readableStreamClosed = port.readable.pipeTo(textDecoder.writable);
-    const reader = textDecoder.readable.getReader();
+    keepReading = true;
+    const decoder = new TextDecoderStream();
+    const inputDone = port.readable.pipeTo(decoder.writable);
+    const inputStream = decoder.readable;
+
+    reader = inputStream.getReader();
 
     let buffer = '';
-    try {
-      while (keepReading) {
+
+    while (keepReading) {
+      try {
         const { value, done } = await reader.read();
         if (done) {
           break;
         }
         if (value) {
           buffer += value;
+          // Split by newline to get full lines
           let lines = buffer.split('\n');
-          buffer = lines.pop(); // incomplete line stays in buffer
-          for (const line of lines) {
+          // Keep last partial line in buffer
+          buffer = lines.pop();
+
+          lines.forEach(line => {
             const cleaned = line.trim();
-            // Expected format: X:512,Y:512,B:1
-            const match = cleaned.match(/X:(\d+),Y:(\d+),B:(\d+)/);
+            // Match format: X:<num>, Y:<num>, Button:<num>
+            const match = cleaned.match(/X:(\d+),\s*Y:(\d+),\s*Button:(\d+)/);
             if (match) {
-              const xRaw = parseInt(match[1], 10);
-              const yRaw = parseInt(match[2], 10);
-              const buttonState = parseInt(match[3], 10);
-              updateJoystick(xRaw, yRaw, buttonState);
-            } else {
-              // Optional: display unparsed data for debug
-              // console.log('Unrecognized:', cleaned);
+              const xVal = parseInt(match[1], 10);
+              const yVal = parseInt(match[2], 10);
+              const buttonVal = parseInt(match[3], 10);
+              updateJoystick(xVal, yVal, buttonVal);
             }
-          }
+          });
         }
+      } catch (error) {
+        console.error('Read error:', error);
+        break;
       }
-    } catch (error) {
-      status.textContent = `Read error: ${error}`;
-    } finally {
-      reader.releaseLock();
     }
+    updateStatus('Disconnected', '#f00');
   }
 
-  connectBtn.addEventListener('click', async () => {
+  async function connect() {
     try {
       port = await navigator.serial.requestPort();
       await port.open({ baudRate: 9600 });
-      status.textContent = 'Connected. Waiting for data...';
+      updateStatus('Connected');
       connectBtn.disabled = true;
-      keepReading = true;
       readLoop();
     } catch (err) {
-      status.textContent = `Connection failed: ${err}`;
+      updateStatus('Connection failed', '#f00');
+      console.error(err);
     }
-  });
+  }
+
+  connectBtn.addEventListener('click', connect);
 </script>
 </body>
 </html>
