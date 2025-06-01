@@ -2,120 +2,101 @@
 <html lang="en" >
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />  
   <title>Joystick Controller</title>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Text:wght@400;600&display=swap');
-
-    /* Apple-like SF font fallback */
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Oxygen,
-        Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-      background: #f5f5f7;
-      color: #1d1d1f;
-      margin: 0;
-      padding: 20px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-    }
-
-    .container {
-      background: #fff;
-      border-radius: 20px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-      width: 100%;
-      max-width: 480px;
-      padding: 40px 30px 50px;
-      box-sizing: border-box;
-      text-align: center;
-      user-select: none;
-    }
-
-    h1 {
-      font-weight: 600;
-      font-size: 2rem;
-      margin-bottom: 20px;
-      color: #1d1d1f;
-    }
-
-    #status {
-      font-weight: 600;
-      font-size: 1.2rem;
-      margin-bottom: 15px;
-      min-height: 24px;
-      color: #3a3a3c;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 10px;
-    }
-
-    /* Connecting spinner animation */
-    .spinner {
-  width: 24px;
-  height: 24px;
-  border: 2.5px solid #007aff;       /* slightly thinner */
-  border-top-color: transparent;
-  border-radius: 50%;
-  box-shadow: 0 0 4px rgba(0, 122, 255, 0.6); /* subtle glow */
-  animation: spin 1.2s cubic-bezier(0.4, 0, 0.2, 1) infinite; /* smoother easing */
-  -webkit-font-smoothing: antialiased; /* better edges */
-  -moz-osx-font-smoothing: grayscale;
+/* Container with translucent glass effect */
+.container {
+  max-width: 480px;
+  margin: 40px auto;
+  padding: 30px 40px;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.15); /* translucent white */
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+  color: #f0f0f5;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  text-align: center;
+  user-select: none;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+/* Heading */
+h1 {
+  font-weight: 600;
+  font-size: 2rem;
+  margin-bottom: 25px;
+  color: #e0e0e5;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }
 
+/* Status and Direction text */
+#status {
+  font-weight: 500;
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+  color: #d4d4d8;
+}
 
-    #direction {
-      font-weight: 400;
-      font-size: 1rem;
-      margin-bottom: 30px;
-      color: #6e6e73;
-      min-height: 20px;
-    }
+#direction {
+  font-weight: 400;
+  font-size: 1rem;
+  margin-bottom: 30px;
+  color: #c7c7cc;
+  min-height: 20px;
+  letter-spacing: 0.03em;
+}
 
-    button {
-      appearance: none;
-      background: #007aff;
-      border: none;
-      border-radius: 14px;
-      color: white;
-      font-weight: 600;
-      font-size: 1.1rem;
-      padding: 14px 0;
-      width: 100%;
-      max-width: 240px;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-      user-select: none;
-      box-shadow: 0 8px 15px rgba(0,122,255,0.3);
-      margin: 0 auto 30px;
-      display: block;
-    }
-    button:hover:not(:disabled) {
-      background: #005bb5;
-      box-shadow: 0 12px 20px rgba(0,91,181,0.4);
-    }
-    button:disabled {
-      background: #d0d0d0;
-      cursor: default;
-      box-shadow: none;
-      color: #8e8e93;
-    }
+/* Buttons with Apple-style rounded corners, subtle shadows, and translucent background */
+button {
+  appearance: none;
+  background: rgba(255, 255, 255, 0.25);
+  border: none;
+  border-radius: 20px;
+  color: #007aff;
+  font-weight: 600;
+  font-size: 1.1rem;
+  padding: 14px 0;
+  width: 100%;
+  max-width: 240px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  user-select: none;
+  box-shadow: 0 8px 20px rgba(0, 122, 255, 0.2);
+  margin: 0 auto 30px;
+  display: block;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
 
-    iframe {
-      border-radius: 18px;
-      border: 1.5px solid #007aff;
-      width: 100%;
-      max-width: 480px;
-      height: 340px;
-      box-shadow: 0 8px 24px rgba(0, 122, 255, 0.2);
-      background: white;
-    }
+button:hover:not(:disabled) {
+  background: rgba(0, 122, 255, 0.25);
+  box-shadow: 0 12px 28px rgba(0, 122, 255, 0.35);
+  color: white;
+}
+
+button:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  cursor: default;
+  box-shadow: none;
+  color: #8e8e93;
+}
+
+/* Iframe with rounded corners, subtle shadow, and translucent background */
+iframe {
+  border-radius: 28px;
+  border: none;
+  width: 100%;
+  max-width: 480px;
+  height: 340px;
+  box-shadow: 0 20px 48px rgba(0, 122, 255, 0.25);
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  overflow: hidden;
+}
+
 
   </style>
 </head>
