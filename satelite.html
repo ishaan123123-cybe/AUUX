@@ -23,10 +23,30 @@
       font-size: 14px;
       pointer-events: none;
     }
+    #connectJoystickBtn {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 10px 15px;
+      background: rgba(0,255,0,0.15);
+      border: 1px solid #0f0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      color: #0f0;
+      user-select: none;
+      z-index: 10;
+      transition: background 0.3s;
+    }
+    #connectJoystickBtn:hover {
+      background: rgba(0,255,0,0.4);
+    }
   </style>
 </head>
 <body>
   <div id="info">Use arrow keys or joystick to move antenna cursor.<br>Satellite info will show here when locked on.</div>
+  <button id="connectJoystickBtn">Connect Joystick</button>
+
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/build/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.152.0/examples/js/controls/OrbitControls.js"></script>
 
@@ -90,8 +110,6 @@
     updateCursorPosition();
 
     // Satellite data example (simulated or real fetched later)
-    // For demo, a few satellites with positions in lat/lon
-    // In real app, fetch live data from N2YO or other APIs
     const satellites = [
       {name: "ISS (ZARYA)", lat: 10, lon: 20},
       {name: "Hubble Space Telescope", lat: -15, lon: 45},
@@ -118,7 +136,6 @@
       satellites.forEach(sat => {
         const dLat = sat.lat - lat;
         const dLon = sat.lon - lon;
-        // Approx distance in degrees
         const dist = Math.sqrt(dLat*dLat + dLon*dLon);
         if(dist < minDist){
           minDist = dist;
@@ -128,8 +145,11 @@
       return closest;
     }
 
-    // Joystick simulation with arrow keys for now
+    // --- Keyboard controls as fallback ---
+    let useJoystick = false;
+
     window.addEventListener('keydown', (e) => {
+      if(useJoystick) return; // disable keyboard if joystick active
       const step = 2; // degrees per press
       switch(e.key) {
         case 'ArrowUp': cursorLat = Math.min(cursorLat + step, 90); break;
@@ -140,14 +160,56 @@
       updateCursorPosition();
     });
 
+    // --- Joystick/Gamepad Integration ---
+    const connectJoystickBtn = document.getElementById('connectJoystickBtn');
+
+    connectJoystickBtn.addEventListener('click', () => {
+      useJoystick = true;
+      connectJoystickBtn.disabled = true;
+      connectJoystickBtn.textContent = 'Joystick Connected';
+      window.requestAnimationFrame(gamepadLoop);
+    });
+
+    // Deadzone helper for joystick sticks
+    function applyDeadzone(value, deadzone = 0.15) {
+      if (Math.abs(value) < deadzone) return 0;
+      return value;
+    }
+
+    // Gamepad loop for joystick input reading
+    function gamepadLoop() {
+      const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+      if (!gamepads) {
+        requestAnimationFrame(gamepadLoop);
+        return;
+      }
+      for (const gp of gamepads) {
+        if (!gp) continue;
+
+        // Typically axes[0] = left stick horizontal, axes[1] = left stick vertical
+        const x = applyDeadzone(gp.axes[0]);
+        const y = applyDeadzone(gp.axes[1]);
+
+        const sensitivity = 1.5; // degrees per frame moved by joystick
+
+        if (x !== 0) {
+          cursorLon = (cursorLon + x * sensitivity + 180) % 360 - 180;
+        }
+        if (y !== 0) {
+          cursorLat = Math.min(90, Math.max(-90, cursorLat - y * sensitivity));
+        }
+
+        updateCursorPosition();
+      }
+      requestAnimationFrame(gamepadLoop);
+    }
+
     // Animation loop
     function animate() {
       requestAnimationFrame(animate);
 
-      // Optional: slowly rotate Earth for cool effect
       earth.rotation.y += 0.0005;
 
-      // Highlight satellite if close to antenna cursor
       satellites.forEach(sat => {
         sat.mesh.material.color.set(0xff0000);
         sat.mesh.scale.set(1,1,1);
