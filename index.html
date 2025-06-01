@@ -1,28 +1,59 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" >
 <head>
-  <meta charset="UTF-8">
-  <title>Joystick Dock</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Joystick Controller</title>
+    <style>
+    :root {
+      --blue: #007aff;
+      --blue-dark: #005bb5;
+      --gray-bg: #f2f2f7;
+      --border: rgba(0, 0, 0, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
     body {
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: #f2f2f7;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background: var(--gray-bg);
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 30px;
+      padding: 40px 20px;
     }
 
     h1 {
       font-size: 1.8rem;
       margin-bottom: 24px;
+      color: #000;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    .dock {
+      background: #ffffffcc;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border-radius: 28px;
+      padding: 24px;
+      max-width: 520px;
+      width: 100%;
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
+      border: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
     }
 
     button {
       appearance: none;
-      background: #007aff;
+      background: var(--blue);
       border: none;
       border-radius: 14px;
       color: white;
@@ -35,71 +66,157 @@
       transition: background-color 0.3s ease, box-shadow 0.3s ease;
       user-select: none;
       box-shadow: 0 8px 15px rgba(0,122,255,0.3);
-      margin-bottom: 12px;
+      margin-bottom: 6px;
     }
 
     button:hover:not(:disabled) {
-      background: #005bb5;
+      background: var(--blue-dark);
       box-shadow: 0 12px 20px rgba(0,91,181,0.4);
     }
 
     button:disabled {
       background: #d0d0d0;
       cursor: default;
+      box-shadow: none;
       color: #8e8e93;
     }
 
     #directionDiv {
       font-size: 1.2rem;
+      color: #111;
       font-weight: 500;
-      margin: 14px 0;
+      margin: 12px 0;
+      text-align: center;
     }
 
     iframe {
       border-radius: 18px;
-      border: 1.5px solid #007aff;
+      border: 1.5px solid var(--blue);
       width: 100%;
       max-width: 480px;
       height: 340px;
       box-shadow: 0 8px 24px rgba(0, 122, 255, 0.2);
       background: white;
-      transition: all 0.4s ease-in-out;
-    }
-
-    .fullscreen-iframe {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100vw;
-      height: 100vh;
-      z-index: 9999;
-      margin: 0;
-      padding: 0;
-      border-radius: 0;
-      border: none;
-      box-shadow: none;
     }
   </style>
 </head>
 <body>
+  <div class="dock">
+    <h1>Joystick Controller</h1>
+    <div id="status">Not Connected</div>
+    <div id="direction"></div>
 
-  <h1>🎮 Joystick Dock</h1>
+    <button id="connectButton">Connect to HC-05</button>
+    <button id="reconnectButton" style="display:none;">Reconnect</button>
+    <button id="fullscreenButton">Fullscreen Game</button>
+  </div>
 
-  <button id="connectButton">Connect</button>
-  <button id="reconnectButton">Reconnect</button>
-
-  <div id="directionDiv">Waiting for input...</div>
-
-  <iframe id="iframe" src="your-scene.html"></iframe>
+  <iframe id="gameIframe" src="https://html-classic.itch.zone/html/13869268/index.html" title="GDevelop Game"></iframe>
 
   <script>
     const connectButton = document.getElementById("connectButton");
     const reconnectButton = document.getElementById("reconnectButton");
-    const directionDiv = document.getElementById("directionDiv");
-    const iframe = document.getElementById("iframe");
+    const fullscreenButton = document.getElementById("fullscreenButton");
+    const statusDiv = document.getElementById("status");
+    const directionDiv = document.getElementById("direction");
+    const iframe = document.getElementById("gameIframe");
+    const container = document.querySelector('.container');
 
+    let port;
+    let reader;
+    let writer;
+    let decoder = new TextDecoder();
+    let lineBuffer = "";
     let lastDirection = "";
-    let buttonPressTimestamps = [];
+    let reconnectInterval;
+
+    function showConnecting() {
+      statusDiv.innerHTML = `<div class="spinner"></div> Connecting...`;
+    }
+
+    async function connect() {
+      try {
+        showConnecting();
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 9600 });
+
+        writer = port.writable.getWriter();
+        reader = port.readable.getReader();
+
+        statusDiv.textContent = "Connected";
+        connectButton.style.display = "none";
+        reconnectButton.style.display = "inline-block";
+        directionDiv.textContent = "";
+
+        sendRing();
+        readData();
+
+        // Clear reconnect attempts on success
+        if (reconnectInterval) {
+          clearInterval(reconnectInterval);
+          reconnectInterval = null;
+        }
+      } catch (error) {
+        statusDiv.textContent = `Error connecting`;
+        connectButton.disabled = false;
+      }
+    }
+
+    async function sendRing() {
+      if (!writer) return;
+      try {
+        const encodedData = new TextEncoder().encode("Ring");
+        await writer.write(encodedData);
+      } catch {}
+    }
+
+    async function readData() {
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (!value) continue;
+
+          lineBuffer += decoder.decode(value, { stream: true });
+
+          let newlineIndex;
+          while ((newlineIndex = lineBuffer.indexOf('\n')) >= 0) {
+            const line = lineBuffer.slice(0, newlineIndex).trim();
+            lineBuffer = lineBuffer.slice(newlineIndex + 1);
+
+            if (line.includes("X:") && line.includes("Y:") && line.includes("Button:")) {
+              processJoystickData(line);
+            }
+          }
+        }
+      } catch {
+        disconnect();
+      }
+      disconnect();
+    }
+
+    function disconnect() {
+      statusDiv.textContent = "Disconnected";
+      connectButton.style.display = "none";
+      reconnectButton.style.display = "inline-block";
+      directionDiv.textContent = "";
+      lastDirection = "";
+      try {
+        if (reader) reader.cancel();
+        if (writer) writer.releaseLock();
+        if (port) port.close();
+      } catch {}
+      reader = null;
+      writer = null;
+      port = null;
+
+      // Start auto reconnect every 5 sec
+      if (!reconnectInterval) {
+        reconnectInterval = setInterval(() => {
+          reconnectButton.click();
+        }, 5000);
+      }
+    }
 
     function processJoystickData(data) {
       const parts = data.split(",");
@@ -109,6 +226,8 @@
       const yValue = parseInt(parts[1].split(":")[1].trim());
       const buttonStateRaw = parts[2].split(":")[1].trim();
       const buttonState = isNaN(buttonStateRaw) ? NaN : parseInt(buttonStateRaw);
+
+      statusDiv.textContent = `X: ${xValue} Y: ${yValue} Btn: ${buttonStateRaw}`;
 
       const xIdle = 350;
       const yIdle = 355;
@@ -121,7 +240,6 @@
 
       if (buttonState === 0) {
         direction = "Button Pressed!";
-        handleButtonPress(); // Detect 3 presses in 5 sec
       } else {
         if (Math.abs(xDiff) > Math.abs(yDiff)) {
           if (xDiff > margin) direction = "RIGHT";
@@ -147,23 +265,6 @@
       }
     }
 
-    function handleButtonPress() {
-      const now = Date.now();
-      buttonPressTimestamps.push(now);
-
-      // Keep only timestamps from the last 5 seconds
-      buttonPressTimestamps = buttonPressTimestamps.filter(ts => now - ts < 5000);
-
-      if (buttonPressTimestamps.length >= 3) {
-        buttonPressTimestamps = []; // Reset
-        enterFakeFullscreen(); // NOT using browser fullscreen
-      }
-    }
-
-    function enterFakeFullscreen() {
-      iframe.classList.add("fullscreen-iframe");
-    }
-
     connectButton.addEventListener("click", async () => {
       connectButton.disabled = true;
       await connect();
@@ -174,25 +275,32 @@
       reconnectButton.disabled = true;
       directionDiv.textContent = "";
       lastDirection = "";
-      iframe.src = iframe.src; // reload iframe
+      if (iframe) {
+        iframe.src = iframe.src; // reload iframe scene on reconnect
+      }
       await connect();
       reconnectButton.disabled = false;
     });
 
-    async function connect() {
-      console.log("Connecting...");
-      await new Promise(res => setTimeout(res, 500)); // fake delay
-      console.log("Connected.");
-    }
-
-    // OPTIONAL: simulate joystick input for testing
-    // setInterval(() => {
-    //   const x = 350 + Math.floor(Math.random() * 100 - 50);
-    //   const y = 355 + Math.floor(Math.random() * 100 - 50);
-    //   const button = Math.random() > 0.75 ? 0 : 1;
-    //   processJoystickData(`X:${x}, Y:${y}, Button:${button}`);
-    // }, 300);
+    fullscreenButton.addEventListener("click", () => {
+      if (!document.fullscreenElement) {
+        if (iframe.requestFullscreen) {
+          iframe.requestFullscreen();
+        } else if (iframe.webkitRequestFullscreen) { /* Safari */
+          iframe.webkitRequestFullscreen();
+        } else if (iframe.msRequestFullscreen) { /* IE11 */
+          iframe.msRequestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) { /* Safari */
+          document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) { /* IE11 */
+          document.msExitFullscreen();
+        }
+      }
+    });
   </script>
-
 </body>
 </html>
