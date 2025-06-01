@@ -4,56 +4,78 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Joystick Controller</title>
-    <style>
-    :root {
-      --blue: #007aff;
-      --blue-dark: #005bb5;
-      --gray-bg: #f2f2f7;
-      --border: rgba(0, 0, 0, 0.08);
-    }
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=SF+Pro+Text:wght@400;600&display=swap');
 
-    * {
-      box-sizing: border-box;
-    }
-
+    /* Apple-like SF font fallback */
     body {
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Oxygen,
+        Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+      background: #f5f5f7;
+      color: #1d1d1f;
       margin: 0;
-      padding: 0;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background: var(--gray-bg);
+      padding: 20px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 40px 20px;
+      min-height: 100vh;
+    }
+
+    .container {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      width: 100%;
+      max-width: 480px;
+      padding: 40px 30px 50px;
+      box-sizing: border-box;
+      text-align: center;
+      user-select: none;
     }
 
     h1 {
-      font-size: 1.8rem;
-      margin-bottom: 24px;
-      color: #000;
-      text-align: center;
       font-weight: 600;
+      font-size: 2rem;
+      margin-bottom: 20px;
+      color: #1d1d1f;
     }
 
-    .dock {
-      background: #ffffffcc;
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border-radius: 28px;
-      padding: 24px;
-      max-width: 520px;
-      width: 100%;
-      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.1);
-      border: 1px solid var(--border);
+    #status {
+      font-weight: 600;
+      font-size: 1.2rem;
+      margin-bottom: 15px;
+      min-height: 24px;
+      color: #3a3a3c;
       display: flex;
-      flex-direction: column;
+      justify-content: center;
       align-items: center;
-      gap: 16px;
+      gap: 10px;
+    }
+
+    /* Connecting spinner animation */
+    .spinner {
+      width: 18px;
+      height: 18px;
+      border: 3px solid #007aff;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    #direction {
+      font-weight: 400;
+      font-size: 1rem;
+      margin-bottom: 30px;
+      color: #6e6e73;
+      min-height: 20px;
     }
 
     button {
       appearance: none;
-      background: var(--blue);
+      background: #007aff;
       border: none;
       border-radius: 14px;
       color: white;
@@ -63,17 +85,16 @@
       width: 100%;
       max-width: 240px;
       cursor: pointer;
-      transition: background-color 0.3s ease, box-shadow 0.3s ease;
+      transition: background-color 0.3s ease;
       user-select: none;
       box-shadow: 0 8px 15px rgba(0,122,255,0.3);
-      margin-bottom: 6px;
+      margin: 0 auto 30px;
+      display: block;
     }
-
     button:hover:not(:disabled) {
-      background: var(--blue-dark);
+      background: #005bb5;
       box-shadow: 0 12px 20px rgba(0,91,181,0.4);
     }
-
     button:disabled {
       background: #d0d0d0;
       cursor: default;
@@ -81,27 +102,20 @@
       color: #8e8e93;
     }
 
-    #directionDiv {
-      font-size: 1.2rem;
-      color: #111;
-      font-weight: 500;
-      margin: 12px 0;
-      text-align: center;
-    }
-
     iframe {
       border-radius: 18px;
-      border: 1.5px solid var(--blue);
+      border: 1.5px solid #007aff;
       width: 100%;
       max-width: 480px;
       height: 340px;
       box-shadow: 0 8px 24px rgba(0, 122, 255, 0.2);
       background: white;
     }
+
   </style>
 </head>
 <body>
-  <div class="dock">
+  <div class="container">
     <h1>Joystick Controller</h1>
     <div id="status">Not Connected</div>
     <div id="direction"></div>
@@ -114,7 +128,128 @@
   <iframe id="gameIframe" src="https://html-classic.itch.zone/html/13869268/index.html" title="GDevelop Game"></iframe>
 
   <script>
-  const connectButton = document.getElementById("connectButton");
+    const connectButton = document.getElementById("connectButton");
+    const reconnectButton = document.getElementById("reconnectButton");
+    const fullscreenButton = document.getElementById("fullscreenButton");
+    const statusDiv = document.getElementById("status");
+    const directionDiv = document.getElementById("direction");
+    const iframe = document.getElementById("gameIframe");
+    const container = document.querySelector('.container');
+
+    let port;
+    let reader;
+    let writer;
+    let decoder = new TextDecoder();
+    let lineBuffer = "";
+    let lastDirection = "";
+    let reconnectInterval;
+
+    function showConnecting() {
+      statusDiv.innerHTML = `<div class="spinner"></div> Connecting...`;
+    }
+
+    async function connect() {
+      try {
+        showConnecting();
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 9600 });
+
+        writer = port.writable.getWriter();
+        reader = port.readable.getReader();
+
+        statusDiv.textContent = "Connected";
+        connectButton.style.display = "none";
+        reconnectButton.style.display = "inline-block";
+        directionDiv.textContent = "";
+
+        sendRing();
+        readData();
+
+        // Clear reconnect attempts on success
+        if (reconnectInterval) {
+          clearInterval(reconnectInterval);
+          reconnectInterval = null;
+        }
+      } catch (error) {
+        statusDiv.textContent = `Error connecting`;
+        connectButton.disabled = false;
+      }
+    }
+
+    async function sendRing() {
+      if (!writer) return;
+      try {
+        const encodedData = new TextEncoder().encode("Ring");
+        await writer.write(encodedData);
+      } catch {}
+    }
+
+    async function readData() {
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (!value) continue;
+
+          lineBuffer += decoder.decode(value, { stream: true });
+
+          let newlineIndex;
+          while ((newlineIndex = lineBuffer.indexOf('\n')) >= 0) {
+            const line = lineBuffer.slice(0, newlineIndex).trim();
+            lineBuffer = lineBuffer.slice(newlineIndex + 1);
+
+            if (line.includes("X:") && line.includes("Y:") && line.includes("Button:")) {
+              processJoystickData(line);
+            }
+          }
+        }
+      } catch {
+        disconnect();
+      }
+      disconnect();
+    }
+
+    function disconnect() {
+      statusDiv.textContent = "Disconnected";
+      connectButton.style.display = "none";
+      reconnectButton.style.display = "inline-block";
+      directionDiv.textContent = "";
+      lastDirection = "";
+      try {
+        if (reader) reader.cancel();
+        if (writer) writer.releaseLock();
+        if (port) port.close();
+      } catch {}
+      reader = null;
+      writer = null;
+      port = null;
+
+      // Start auto reconnect every 5 sec
+      if (!reconnectInterval) {
+        reconnectInterval = setInterval(() => {
+          reconnectButton.click();
+        }, 5000);
+      }
+    }
+
+    function processJoystickData(data) {
+      const parts = data.split(",");
+      if (parts.length < 3) return;
+
+      const xValue = parseInt(parts[0].split(":")[1].trim());
+      const yValue = parseInt(parts[1].split(":")[1].trim());
+      const buttonStateRaw = parts[2].split(":")[1].trim();
+      const buttonState = isNaN(buttonStateRaw) ? NaN : parseInt(buttonStateRaw);
+
+      statusDiv.textContent = `X: ${xValue} Y: ${yValue} Btn: ${buttonStateRaw}`;
+
+      const xIdle = 350;
+      const yIdle = 355;
+      const margin = 75;
+
+      const xDiff = xValue - xIdle;
+      const yDiff = yValue - yIdle;
+
       let direction = "IDLE";
 
       if (buttonState === 0) {
@@ -179,8 +314,7 @@
           document.msExitFullscreen();
         }
       }
-    })
-
+    });
   </script>
 </body>
 </html>
