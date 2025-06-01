@@ -267,9 +267,7 @@
     async function connect() {
       try {
         showOverlay("Select your ROBO324 device...");
-        port = await navigator.serial.requestPort({
-          filters: [{ usbVendorId: VENDOR_ID, usbProductId: PRODUCT_ID }],
-        });
+        port = await navigator.serial.requestPort();
         await port.open({ baudRate: 9600 });
         setupPort();
         hideOverlay();
