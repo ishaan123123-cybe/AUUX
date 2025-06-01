@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Joystick Bluetooth Reader</title>
+  <title>Joystick Bluetooth Reader + Visualization</title>
   <style>
     body {
       background: #111;
@@ -14,6 +14,7 @@
       justify-content: center;
       height: 100vh;
       margin: 0;
+      user-select: none;
     }
     #status {
       margin-bottom: 10px;
@@ -28,7 +29,7 @@
       border-radius: 8px;
       width: 300px;
       text-align: center;
-      user-select: none;
+      margin-bottom: 20px;
     }
     button {
       background: #0f0;
@@ -44,17 +45,60 @@
     button:hover {
       background: #0c0;
     }
+    #joystick-container {
+      position: relative;
+      width: 200px;
+      height: 200px;
+      border: 2px solid #0f0;
+      border-radius: 12px;
+      background: #222;
+      box-sizing: border-box;
+    }
+    #joystick {
+      position: absolute;
+      width: 40px;
+      height: 40px;
+      background: #0f0;
+      border-radius: 50%;
+      top: 80px; /* centered initially */
+      left: 80px;
+      transition: top 0.1s ease, left 0.1s ease;
+      box-shadow: 0 0 8px #0f0;
+    }
+    #button-indicator {
+      margin-top: 15px;
+      width: 60px;
+      height: 30px;
+      background: #090;
+      border-radius: 6px;
+      line-height: 30px;
+      text-align: center;
+      font-weight: bold;
+      color: #000;
+      user-select: none;
+      transition: background 0.3s;
+    }
+    #button-indicator.pressed {
+      background: #f00;
+      color: #fff;
+    }
   </style>
 </head>
 <body>
   <div id="status">Disconnected</div>
   <div id="data">No data yet.</div>
+  <div id="joystick-container">
+    <div id="joystick"></div>
+  </div>
+  <div id="button-indicator">Released</div>
   <button id="connectBtn">Connect Bluetooth Joystick</button>
 
 <script>
   const connectBtn = document.getElementById('connectBtn');
   const statusDiv = document.getElementById('status');
   const dataDiv = document.getElementById('data');
+  const joystick = document.getElementById('joystick');
+  const buttonIndicator = document.getElementById('button-indicator');
 
   let port;
   let reader;
@@ -67,6 +111,37 @@
 
   function updateJoystick(x, y, button) {
     dataDiv.textContent = `X: ${x}\nY: ${y}\nButton: ${button === 0 ? 'Pressed' : 'Released'}`;
+
+    // Map joystick analog values (0-1023 typical) to position inside container (160x160 area)
+    // Clamp inputs just in case
+    const clamp = (num, min, max) => Math.min(Math.max(num, min), max);
+
+    // Normalize assuming analogRead 0-1023
+    let normX = clamp(x, 0, 1023) / 1023;
+    let normY = clamp(y, 0, 1023) / 1023;
+
+    // Invert Y for more natural movement (up is lower Y value)
+    normY = 1 - normY;
+
+    const containerSize = 200;
+    const joystickSize = 40;
+    const maxMove = containerSize - joystickSize; // max pixels to move inside container
+
+    // Calculate pixel position inside container
+    const left = normX * maxMove;
+    const top = normY * maxMove;
+
+    joystick.style.left = `${left}px`;
+    joystick.style.top = `${top}px`;
+
+    // Update button indicator color
+    if(button === 0) {
+      buttonIndicator.textContent = "Pressed";
+      buttonIndicator.classList.add('pressed');
+    } else {
+      buttonIndicator.textContent = "Released";
+      buttonIndicator.classList.remove('pressed');
+    }
   }
 
   async function readLoop() {
