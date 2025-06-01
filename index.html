@@ -1,140 +1,177 @@
 <!DOCTYPE html>
-<html lang="en" >
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />  
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Joystick Controller</title>
   <style>
-/* Container with translucent glass effect */
-.container {
-  max-width: 480px;
-  margin: 40px auto;
-  padding: 30px 40px;
-  border-radius: 30px;
-  background: rgba(255, 255, 255, 0.15); /* translucent white */
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
-  color: #f0f0f5;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
-    Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
-  text-align: center;
-  user-select: none;
-}
+    /* --- Container & Typography --- */
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #0a0a0f, #121216);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+        Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+      color: #f0f0f5;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow-x: hidden;
+      user-select: none;
+    }
+    .container {
+      max-width: 480px;
+      margin: 50px auto;
+      padding: 30px 40px;
+      border-radius: 30px;
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+      text-align: center;
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
+      z-index: 10;
+    }
+    .container.expanded {
+      transform: scale(1.05);
+      box-shadow: 0 30px 70px rgba(0, 122, 255, 0.4);
+      z-index: 9998;
+    }
+    h1 {
+      font-weight: 700;
+      font-size: 2.5rem;
+      margin-bottom: 25px;
+      color: #e0e0e5;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    }
+    #status {
+      font-weight: 600;
+      font-size: 1.15rem;
+      margin-bottom: 15px;
+      color: #d4d4d8;
+      min-height: 24px;
+    }
+    #direction {
+      font-weight: 500;
+      font-size: 1.1rem;
+      margin-bottom: 30px;
+      color: #c7c7cc;
+      min-height: 22px;
+      letter-spacing: 0.03em;
+    }
 
-/* Heading */
-h1 {
-  font-weight: 600;
-  font-size: 2rem;
-  margin-bottom: 25px;
-  color: #e0e0e5;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
-}
+    /* --- Buttons --- */
+    button {
+      appearance: none;
+      background: rgba(255, 255, 255, 0.25);
+      border: none;
+      border-radius: 20px;
+      color: #007aff;
+      font-weight: 600;
+      font-size: 1.15rem;
+      padding: 14px 0;
+      width: 100%;
+      max-width: 240px;
+      cursor: pointer;
+      transition: background-color 0.3s ease, box-shadow 0.3s ease, color 0.3s ease;
+      box-shadow: 0 8px 20px rgba(0, 122, 255, 0.2);
+      margin: 0 auto 30px;
+      display: block;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      user-select: none;
+    }
+    button:hover:not(:disabled) {
+      background: rgba(0, 122, 255, 0.35);
+      box-shadow: 0 12px 28px rgba(0, 122, 255, 0.45);
+      color: white;
+    }
+    button:disabled {
+      background: rgba(255, 255, 255, 0.1);
+      cursor: default;
+      box-shadow: none;
+      color: #8e8e93;
+    }
 
-/* Status and Direction text */
-#status {
-  font-weight: 500;
-  font-size: 1.1rem;
-  margin-bottom: 15px;
-  color: #d4d4d8;
-  min-height: 42px; /* to hold spinner */
-}
+    /* --- Iframe --- */
+    iframe {
+      border-radius: 28px;
+      border: none;
+      width: 100%;
+      max-width: 480px;
+      height: 340px;
+      box-shadow: 0 20px 48px rgba(0, 122, 255, 0.25);
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      overflow: hidden;
+      transition: box-shadow 0.3s ease;
+    }
+    iframe.fullscreen-active {
+      box-shadow: 0 0 60px 8px #007affcc;
+      border-radius: 0;
+      height: 100vh;
+      width: 100vw;
+    }
 
-#direction {
-  font-weight: 400;
-  font-size: 1rem;
-  margin-bottom: 30px;
-  color: #c7c7cc;
-  min-height: 20px;
-  letter-spacing: 0.03em;
-}
+    /* --- Fullscreen animation --- */
+    .fullscreen-animating {
+      transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      will-change: transform;
+    }
+    .expanded {
+      transform: scale(1.08);
+      box-shadow: 0 30px 60px rgba(0, 122, 255, 0.5);
+    }
 
-/* Buttons with Apple-style rounded corners, subtle shadows, and translucent background */
-button {
-  appearance: none;
-  background: rgba(255, 255, 255, 0.25);
-  border: none;
-  border-radius: 20px;
-  color: #007aff;
-  font-weight: 600;
-  font-size: 1.1rem;
-  padding: 14px 0;
-  width: 100%;
-  max-width: 240px;
-  cursor: pointer;
-  transition: background-color 0.3s ease, box-shadow 0.3s ease;
-  user-select: none;
-  box-shadow: 0 8px 20px rgba(0, 122, 255, 0.2);
-  margin: 0 auto 30px;
-  display: block;
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-}
+    /* --- Overlay for auto-connect --- */
+    #autoConnectOverlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.88);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      color: white;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+        Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+      font-size: 1.5rem;
+      user-select: none;
+      z-index: 9999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.35s ease;
+    }
+    #autoConnectOverlay.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #autoConnectOverlay .spinner {
+      width: 72px;
+      height: 72px;
+      border: 8px solid rgba(255, 255, 255, 0.25);
+      border-top-color: #007aff;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 24px;
+      will-change: transform;
+    }
+    #autoConnectOverlay .status-text {
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      user-select: none;
+    }
 
-button:hover:not(:disabled) {
-  background: rgba(0, 122, 255, 0.25);
-  box-shadow: 0 12px 28px rgba(0, 122, 255, 0.35);
-  color: white;
-}
-
-button:disabled {
-  background: rgba(255, 255, 255, 0.1);
-  cursor: default;
-  box-shadow: none;
-  color: #8e8e93;
-}
-
-/* Iframe with rounded corners, subtle shadow, and translucent background */
-iframe {
-  border-radius: 28px;
-  border: none;
-  width: 100%;
-  max-width: 480px;
-  height: 340px;
-  box-shadow: 0 20px 48px rgba(0, 122, 255, 0.25);
-  background: rgba(255, 255, 255, 0.12);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
-  overflow: hidden;
-  transition: box-shadow 0.4s ease, border-radius 0.4s ease;
-}
-
-/* Spinner */
-.spinner {
-  margin: 0 auto 10px;
-  width: 36px;
-  height: 36px;
-  border: 4px solid rgba(0, 122, 255, 0.3);
-  border-top-color: #007aff;
-  border-radius: 50%;
-  animation: spin 1.2s linear infinite;
-}
-
-@keyframes spin {
-  to { transform: rotate(360deg); }
-}
-
-/* Container smooth scale animation for fullscreen */
-.container.fullscreen-animating {
-  transition: transform 0.4s ease, box-shadow 0.4s ease;
-  transform-origin: center center;
-}
-
-.container.expanded {
-  transform: scale(1.1);
-  box-shadow: 0 30px 60px rgba(0, 122, 255, 0.5);
-}
-
-/* Animate iframe on fullscreen */
-iframe.fullscreen-active {
-  border-radius: 0;
-  box-shadow: none;
-}
-
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
   </style>
 </head>
 <body>
-  <div class="container">
+  <div class="container" id="container">
     <h1>Joystick Controller</h1>
     <div id="status">Not Connected</div>
     <div id="direction"></div>
@@ -144,7 +181,17 @@ iframe.fullscreen-active {
     <button id="fullscreenButton">Fullscreen Game</button>
   </div>
 
-  <iframe id="gameIframe" src="https://html-classic.itch.zone/html/13869268/index.html" title="GDevelop Game"></iframe>
+  <iframe
+    id="gameIframe"
+    src="https://html-classic.itch.zone/html/13869268/index.html"
+    title="GDevelop Game"
+  ></iframe>
+
+  <!-- Auto-connect overlay -->
+  <div id="autoConnectOverlay" aria-live="polite" role="alert" class="hidden">
+    <div class="spinner"></div>
+    <div class="status-text">Connecting to ROBO324...</div>
+  </div>
 
   <script>
     const connectButton = document.getElementById("connectButton");
@@ -153,7 +200,12 @@ iframe.fullscreen-active {
     const statusDiv = document.getElementById("status");
     const directionDiv = document.getElementById("direction");
     const iframe = document.getElementById("gameIframe");
-    const container = document.querySelector('.container');
+    const container = document.getElementById("container");
+    const overlay = document.getElementById("autoConnectOverlay");
+
+    // Replace these with your device's vendorId and productId (numbers, no quotes)
+    const VENDOR_ID = 0x2341;  // Example: Arduino vendorId, change to your HC-05 vendorId
+    const PRODUCT_ID = 0x8036; // Example productId, replace accordingly
 
     let port;
     let reader;
@@ -163,26 +215,67 @@ iframe.fullscreen-active {
     let lastDirection = "";
     let reconnectInterval;
 
-    function showConnecting() {
-      statusDiv.innerHTML = `<div class="spinner"></div> Connecting...`;
+    // Show overlay
+    function showOverlay(text = "Connecting to ROBO324...") {
+      overlay.querySelector(".status-text").textContent = text;
+      overlay.classList.add("visible");
+    }
+
+    // Hide overlay
+    function hideOverlay() {
+      overlay.classList.remove("visible");
+    }
+
+    async function autoConnectToROBO324() {
+      // Get all allowed ports
+      const ports = await navigator.serial.getPorts();
+
+      // Try to find our device by vendor/product ID
+      for (const p of ports) {
+        try {
+          const info = p.getInfo();
+          if (
+            info.usbVendorId === VENDOR_ID &&
+            info.usbProductId === PRODUCT_ID
+          ) {
+            port = p;
+            showOverlay("Auto-connecting to ROBO324...");
+            await port.open({ baudRate: 9600 });
+            setupPort();
+            hideOverlay();
+            statusDiv.textContent = "Connected (auto)";
+            connectButton.style.display = "none";
+            reconnectButton.style.display = "inline-block";
+            return true;
+          }
+        } catch (err) {
+          console.warn("Failed to open port during auto-connect", err);
+        }
+      }
+      return false;
+    }
+
+    function setupPort() {
+      writer = port.writable.getWriter();
+      reader = port.readable.getReader();
+      lineBuffer = "";
+      lastDirection = "";
+      readData();
+      sendRing();
     }
 
     async function connect() {
       try {
-        showConnecting();
-        port = await navigator.serial.requestPort();
+        showOverlay("Select your ROBO324 device...");
+        port = await navigator.serial.requestPort({
+          filters: [{ usbVendorId: VENDOR_ID, usbProductId: PRODUCT_ID }],
+        });
         await port.open({ baudRate: 9600 });
-
-        writer = port.writable.getWriter();
-        reader = port.readable.getReader();
-
+        setupPort();
+        hideOverlay();
         statusDiv.textContent = "Connected";
         connectButton.style.display = "none";
         reconnectButton.style.display = "inline-block";
-        directionDiv.textContent = "";
-
-        sendRing();
-        readData();
 
         // Clear reconnect attempts on success
         if (reconnectInterval) {
@@ -190,7 +283,8 @@ iframe.fullscreen-active {
           reconnectInterval = null;
         }
       } catch (error) {
-        statusDiv.textContent = `Error connecting`;
+        hideOverlay();
+        statusDiv.textContent = `Error connecting: ${error.message}`;
         connectButton.disabled = false;
       }
     }
@@ -213,11 +307,15 @@ iframe.fullscreen-active {
           lineBuffer += decoder.decode(value, { stream: true });
 
           let newlineIndex;
-          while ((newlineIndex = lineBuffer.indexOf('\n')) >= 0) {
+          while ((newlineIndex = lineBuffer.indexOf("\n")) >= 0) {
             const line = lineBuffer.slice(0, newlineIndex).trim();
             lineBuffer = lineBuffer.slice(newlineIndex + 1);
 
-            if (line.includes("X:") && line.includes("Y:") && line.includes("Button:")) {
+            if (
+              line.includes("X:") &&
+              line.includes("Y:") &&
+              line.includes("Button:")
+            ) {
               processJoystickData(line);
             }
           }
@@ -243,106 +341,45 @@ iframe.fullscreen-active {
       writer = null;
       port = null;
 
-      // Start auto reconnect every 5 sec
+      // Try auto reconnect every 10 seconds
       if (!reconnectInterval) {
         reconnectInterval = setInterval(() => {
-          reconnectButton.click();
-        }, 5000);
+          autoConnectToROBO324();
+        }, 10000);
       }
     }
 
-    function processJoystickData(data) {
-      const parts = data.split(",");
-      if (parts.length < 3) return;
+    function processJoystickData(line) {
+      // Parse data: example format "X:0 Y:-20 Button:1"
+      const regex = /X:(-?\d+)\s+Y:(-?\d+)\s+Button:(\d+)/;
+      const match = line.match(regex);
+      if (!match) return;
 
-      const xValue = parseInt(parts[0].split(":")[1].trim());
-      const yValue = parseInt(parts[1].split(":")[1].trim());
-      const buttonStateRaw = parts[2].split(":")[1].trim();
-      const buttonState = isNaN(buttonStateRaw) ? NaN : parseInt(buttonStateRaw);
+      const x = parseInt(match[1], 10);
+      const y = parseInt(match[2], 10);
+      const button = parseInt(match[3], 10);
 
-      statusDiv.textContent = `X: ${xValue} Y: ${yValue} Btn: ${buttonStateRaw}`;
+      let direction = "";
 
-      const xIdle = 350;
-      const yIdle = 355;
-      const margin = 75;
+      if (y < -15) direction += "Up ";
+      else if (y > 15) direction += "Down ";
 
-      const xDiff = xValue - xIdle;
-      const yDiff = yValue - yIdle;
+      if (x > 15) direction += "Right ";
+      else if (x < -15) direction += "Left ";
 
-      let direction = "IDLE";
+      direction = direction.trim();
 
-      if (buttonState === 0) {
-        direction = "Button Pressed!";
-      } else {
-        if (Math.abs(xDiff) > Math.abs(yDiff)) {
-          if (xDiff > margin) direction = "RIGHT";
-          else if (xDiff < -margin) direction = "LEFT";
-        } else {
-          if (yDiff > margin) direction = "DOWN";
-          else if (yDiff < -margin) direction = "UP";
-        }
+      if (button === 1) {
+        direction += direction ? " + Button Pressed" : "Button Pressed";
       }
-
-      directionDiv.textContent = direction;
 
       if (direction !== lastDirection) {
+        directionDiv.textContent = direction || "Centered";
         lastDirection = direction;
-        iframe.contentWindow.postMessage({
-          joystick: {
-            x: xValue,
-            y: yValue,
-            button: buttonState,
-            direction: direction
-          }
-        }, "*");
       }
     }
 
-    // Auto-connect silently to previously granted port (assumed to be "ROBO324")
-    async function autoConnectToROBO324() {
-      try {
-        const ports = await navigator.serial.getPorts();
-
-        for (const p of ports) {
-          // We don't have direct device name access,
-          // So for demo just connect first available port.
-          port = p;
-          await port.open({ baudRate: 9600 });
-
-          writer = port.writable.getWriter();
-          reader = port.readable.getReader();
-
-          statusDiv.textContent = "Connected (Auto) to ROBO324";
-          connectButton.style.display = "none";
-          reconnectButton.style.display = "inline-block";
-          directionDiv.textContent = "";
-
-          sendRing();
-          readData();
-
-          return true;
-        }
-        return false;
-      } catch (e) {
-        statusDiv.textContent = "Auto connect failed";
-        return false;
-      }
-    }
-
-    window.addEventListener('DOMContentLoaded', async () => {
-      if ("serial" in navigator) {
-        const autoConnected = await autoConnectToROBO324();
-        if (!autoConnected) {
-          statusDiv.textContent = "Not Connected";
-          connectButton.style.display = "inline-block";
-          reconnectButton.style.display = "none";
-        }
-      } else {
-        statusDiv.textContent = "Web Serial API not supported";
-        connectButton.disabled = true;
-      }
-    });
-
+    // Button event listeners
     connectButton.addEventListener("click", async () => {
       connectButton.disabled = true;
       await connect();
@@ -360,29 +397,49 @@ iframe.fullscreen-active {
       reconnectButton.disabled = false;
     });
 
-    fullscreenButton.addEventListener("click", () => {
+    fullscreenButton.addEventListener("click", async () => {
       if (!document.fullscreenElement) {
         container.classList.add("fullscreen-animating", "expanded");
         setTimeout(async () => {
-          if (iframe.requestFullscreen) {
-            await iframe.requestFullscreen();
-          } else if (iframe.webkitRequestFullscreen) {
-            await iframe.webkitRequestFullscreen();
-          } else if (iframe.msRequestFullscreen) {
-            await iframe.msRequestFullscreen();
+          try {
+            if (iframe.requestFullscreen) {
+              await iframe.requestFullscreen();
+            } else if (iframe.webkitRequestFullscreen) {
+              await iframe.webkitRequestFullscreen();
+            } else if (iframe.msRequestFullscreen) {
+              await iframe.msRequestFullscreen();
+            }
+            container.classList.remove("fullscreen-animating", "expanded");
+            iframe.classList.add("fullscreen-active");
+          } catch (err) {
+            console.error("Fullscreen error:", err);
           }
-          container.classList.remove("fullscreen-animating", "expanded");
-          iframe.classList.add("fullscreen-active");
-        }, 400); // match CSS transition
+        }, 400); // sync with CSS transition
       } else {
-        if (document.exitFullscreen) {
-          document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) {
-          document.webkitExitFullscreen();
-        } else if (document.msExitFullscreen) {
-          document.msExitFullscreen();
+        try {
+          if (document.exitFullscreen) {
+            await document.exitFullscreen();
+          } else if (document.webkitExitFullscreen) {
+            await document.webkitExitFullscreen();
+          } else if (document.msExitFullscreen) {
+            await document.msExitFullscreen();
+          }
+          iframe.classList.remove("fullscreen-active");
+        } catch (err) {
+          console.error("Exit fullscreen error:", err);
         }
-        iframe.classList.remove("fullscreen-active");
+      }
+    });
+
+    // Auto-connect on page load
+    window.addEventListener("load", async () => {
+      showOverlay("Auto-connecting to ROBO324...");
+      const connected = await autoConnectToROBO324();
+      if (!connected) {
+        hideOverlay();
+        statusDiv.textContent = "Not Connected";
+        connectButton.style.display = "inline-block";
+        reconnectButton.style.display = "none";
       }
     });
   </script>
