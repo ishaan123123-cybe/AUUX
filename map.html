@@ -2,58 +2,32 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8" />
-<title>Joystick Room Mapper with Bluetooth</title>
+<title>Bluetooth Joystick Room Mapper</title>
 <style>
-  body {
-    margin: 0; 
-    background: #111;
-    color: #0f0;
-    font-family: monospace, monospace;
-    user-select: none;
-    overflow: hidden;
-  }
-  #container {
-    position: relative;
-    width: 100vw; height: 100vh;
-  }
-  canvas {
-    background: #222;
-    display: block;
-    margin: 0 auto;
-    border: 2px solid #0f0;
-  }
+  body { margin:0; background:#111; color:#0f0; font-family: monospace; user-select:none; }
+  #container { position:relative; width:100vw; height:100vh; }
+  canvas { background:#222; display:block; margin:auto; border:2px solid #0f0; }
   #info {
-    position: absolute;
-    top: 10px; left: 10px;
-    background: rgba(0,0,0,0.7);
-    padding: 10px;
-    border-radius: 8px;
-    max-width: 320px;
-    user-select: none;
+    position:absolute; top:10px; left:10px;
+    background:rgba(0,0,0,0.7); padding:10px; border-radius:8px;
+    max-width:320px;
+    user-select:none;
   }
   #clearBtn, #connectJoystickBtn {
-    position: absolute;
-    top: 10px;
-    padding: 8px 14px;
-    background: #0f0;
-    color: #000;
-    border: none;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: bold;
-    user-select: none;
+    position:absolute; top:10px; padding:8px 14px; background:#0f0; color:#000; border:none; border-radius:6px;
+    cursor:pointer; font-weight:bold; user-select:none;
   }
-  #clearBtn { right: 10px; }
-  #connectJoystickBtn { right: 130px; }
+  #clearBtn { right:10px; }
+  #connectJoystickBtn { right:130px; }
 </style>
 </head>
 <body>
   <div id="container">
     <canvas id="mapCanvas" width="600" height="600"></canvas>
     <div id="info">
-      <b>Joystick Room Mapper with Bluetooth</b><br>
-      Use arrow keys, gamepad, or Bluetooth joystick to move scanner.<br>
-      Mark walls with joystick button or spacebar.<br>
+      <b>Bluetooth Joystick Room Mapper</b><br>
+      Use joystick to move the scanner square.<br>
+      Press joystick button to mark/unmark walls.<br>
       Click "Clear Map" to reset.<br>
       Click "Connect Bluetooth Joystick" to start serial connection.
     </div>
@@ -71,31 +45,37 @@
   const rows = canvas.height / gridSize;
   const cols = canvas.width / gridSize;
 
+  // Map grid: 0 empty, 1 wall
   const map = Array.from({length: rows}, () => Array(cols).fill(0));
 
+  // Scanner position starts centered
   let scannerX = Math.floor(cols / 2);
   let scannerY = Math.floor(rows / 2);
 
-  // Flags to enable inputs
+  // Joystick connection state
   let bluetoothJoystickConnected = false;
-  let gamepadConnected = false;
 
-  // Serial port stuff
+  // Serial port objects
   let port;
   let reader;
   const textDecoder = new TextDecoderStream();
   let inputDone;
   let inputStream;
 
-  // Joystick raw values calibration (assuming 0-1023 range)
+  // Joystick calibration and deadzone
   const CENTER_X = 512;
   const CENTER_Y = 512;
   const DEADZONE = 100;
 
-  // Map functions
+  // Timing for joystick movement throttling (ms)
+  const MOVE_INTERVAL = 150;
+  let lastMoveTime = 0;
+
+  // Draw the grid and scanner
   function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    // Draw grid lines
     ctx.strokeStyle = '#0f0';
     ctx.lineWidth = 1;
     for(let r=0; r<=rows; r++) {
@@ -111,6 +91,7 @@
       ctx.stroke();
     }
 
+    // Draw walls
     ctx.fillStyle = '#0f0';
     for(let r=0; r<rows; r++) {
       for(let c=0; c<cols; c++) {
@@ -120,12 +101,14 @@
       }
     }
 
+    // Draw scanner as yellow square
     ctx.fillStyle = '#ff0';
     ctx.fillRect(scannerX*gridSize+4, scannerY*gridSize+4, gridSize-8, gridSize-8);
   }
 
   draw();
 
+  // Move scanner within bounds
   function moveScanner(dx, dy) {
     const nx = scannerX + dx;
     const ny = scannerY + dy;
@@ -136,24 +119,13 @@
     }
   }
 
+  // Toggle wall at scanner position
   function markWall() {
     map[scannerY][scannerX] = map[scannerY][scannerX] === 1 ? 0 : 1;
     draw();
   }
 
-  // Keyboard fallback controls
-  window.addEventListener('keydown', e => {
-    if(bluetoothJoystickConnected || gamepadConnected) return;
-
-    switch(e.key) {
-      case 'ArrowUp': moveScanner(0,-1); break;
-      case 'ArrowDown': moveScanner(0,1); break;
-      case 'ArrowLeft': moveScanner(-1,0); break;
-      case 'ArrowRight': moveScanner(1,0); break;
-      case ' ': markWall(); break;
-    }
-  });
-
+  // Clear map button
   clearBtn.addEventListener('click', () => {
     for(let r=0; r<rows; r++) {
       for(let c=0; c<cols; c++) {
@@ -163,58 +135,7 @@
     draw();
   });
 
-  // Gamepad fallback (optional)
-  function applyDeadzone(value, deadzone=0.15) {
-    return Math.abs(value) < deadzone ? 0 : value;
-  }
-
-  function gamepadLoop() {
-    if(!gamepadConnected) return;
-
-    const gamepads = navigator.getGamepads();
-    for(const gp of gamepads) {
-      if(!gp) continue;
-
-      const x = applyDeadzone(gp.axes[0]);
-      const y = applyDeadzone(gp.axes[1]);
-      if(x !== 0 || y !== 0) {
-        if(!gamepadLoop.lastMove) gamepadLoop.lastMove = 0;
-        const now = performance.now();
-        if(now - gamepadLoop.lastMove > 150) {
-          if(x < 0) moveScanner(-1,0);
-          else if(x > 0) moveScanner(1,0);
-          if(y < 0) moveScanner(0,-1);
-          else if(y > 0) moveScanner(0,1);
-          gamepadLoop.lastMove = now;
-        }
-      }
-
-      if(gp.buttons[0].pressed) {
-        if(!gamepadLoop.buttonPressed) {
-          markWall();
-          gamepadLoop.buttonPressed = true;
-        }
-      } else {
-        gamepadLoop.buttonPressed = false;
-      }
-    }
-
-    requestAnimationFrame(gamepadLoop);
-  }
-
-  window.addEventListener('gamepadconnected', () => {
-    gamepadConnected = true;
-    console.log('Gamepad connected!');
-    requestAnimationFrame(gamepadLoop);
-  });
-
-  window.addEventListener('gamepaddisconnected', () => {
-    gamepadConnected = false;
-    console.log('Gamepad disconnected');
-  });
-
-  // --- Web Serial connection & reading ---
-
+  // Connect to Bluetooth Joystick via Web Serial
   async function connectBluetoothJoystick() {
     try {
       port = await navigator.serial.requestPort();
@@ -231,11 +152,13 @@
 
       readSerialLoop();
     } catch (err) {
-      console.error("Connection error:", err);
-      alert("Failed to connect joystick.");
+      alert("Failed to connect joystick: " + err);
     }
   }
 
+  connectJoystickBtn.addEventListener('click', connectBluetoothJoystick);
+
+  // Read and process joystick serial data line by line
   async function readSerialLoop() {
     let buffer = "";
     while (bluetoothJoystickConnected) {
@@ -258,10 +181,9 @@
     }
   }
 
-  // Expected data format example: "X:512,Y:400,Btn:1"
-  let lastMoveTime = 0;
+  // Parse joystick data line and control scanner
+  // Expected line format: "X:512,Y:400,Btn:0"
   function processJoystickData(line) {
-    // Parse line
     const match = line.match(/X:(\d+),Y:(\d+),Btn:(\d+)/);
     if(!match) return;
 
@@ -271,16 +193,14 @@
 
     const now = performance.now();
 
-    // Determine direction based on deadzone around center
     let dx = 0, dy = 0;
-
     if(rawX < CENTER_X - DEADZONE) dx = -1;
     else if(rawX > CENTER_X + DEADZONE) dx = 1;
 
     if(rawY < CENTER_Y - DEADZONE) dy = -1;
     else if(rawY > CENTER_Y + DEADZONE) dy = 1;
 
-    if(now - lastMoveTime > 150) {
+    if(now - lastMoveTime > MOVE_INTERVAL) {
       if(dx !== 0 || dy !== 0) {
         moveScanner(dx, dy);
         lastMoveTime = now;
@@ -296,9 +216,6 @@
       processJoystickData.btnPressed = false;
     }
   }
-
-  connectJoystickBtn.addEventListener('click', connectBluetoothJoystick);
-
 </script>
 </body>
 </html>
