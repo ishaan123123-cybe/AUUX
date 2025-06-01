@@ -37,6 +37,7 @@ h1 {
   font-size: 1.1rem;
   margin-bottom: 15px;
   color: #d4d4d8;
+  min-height: 42px; /* to hold spinner */
 }
 
 #direction {
@@ -95,8 +96,40 @@ iframe {
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
   overflow: hidden;
+  transition: box-shadow 0.4s ease, border-radius 0.4s ease;
 }
 
+/* Spinner */
+.spinner {
+  margin: 0 auto 10px;
+  width: 36px;
+  height: 36px;
+  border: 4px solid rgba(0, 122, 255, 0.3);
+  border-top-color: #007aff;
+  border-radius: 50%;
+  animation: spin 1.2s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Container smooth scale animation for fullscreen */
+.container.fullscreen-animating {
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+  transform-origin: center center;
+}
+
+.container.expanded {
+  transform: scale(1.1);
+  box-shadow: 0 30px 60px rgba(0, 122, 255, 0.5);
+}
+
+/* Animate iframe on fullscreen */
+iframe.fullscreen-active {
+  border-radius: 0;
+  box-shadow: none;
+}
 
   </style>
 </head>
@@ -265,6 +298,51 @@ iframe {
       }
     }
 
+    // Auto-connect silently to previously granted port (assumed to be "ROBO324")
+    async function autoConnectToROBO324() {
+      try {
+        const ports = await navigator.serial.getPorts();
+
+        for (const p of ports) {
+          // We don't have direct device name access,
+          // So for demo just connect first available port.
+          port = p;
+          await port.open({ baudRate: 9600 });
+
+          writer = port.writable.getWriter();
+          reader = port.readable.getReader();
+
+          statusDiv.textContent = "Connected (Auto) to ROBO324";
+          connectButton.style.display = "none";
+          reconnectButton.style.display = "inline-block";
+          directionDiv.textContent = "";
+
+          sendRing();
+          readData();
+
+          return true;
+        }
+        return false;
+      } catch (e) {
+        statusDiv.textContent = "Auto connect failed";
+        return false;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      if ("serial" in navigator) {
+        const autoConnected = await autoConnectToROBO324();
+        if (!autoConnected) {
+          statusDiv.textContent = "Not Connected";
+          connectButton.style.display = "inline-block";
+          reconnectButton.style.display = "none";
+        }
+      } else {
+        statusDiv.textContent = "Web Serial API not supported";
+        connectButton.disabled = true;
+      }
+    });
+
     connectButton.addEventListener("click", async () => {
       connectButton.disabled = true;
       await connect();
@@ -284,21 +362,27 @@ iframe {
 
     fullscreenButton.addEventListener("click", () => {
       if (!document.fullscreenElement) {
-        if (iframe.requestFullscreen) {
-          iframe.requestFullscreen();
-        } else if (iframe.webkitRequestFullscreen) { /* Safari */
-          iframe.webkitRequestFullscreen();
-        } else if (iframe.msRequestFullscreen) { /* IE11 */
-          iframe.msRequestFullscreen();
-        }
+        container.classList.add("fullscreen-animating", "expanded");
+        setTimeout(async () => {
+          if (iframe.requestFullscreen) {
+            await iframe.requestFullscreen();
+          } else if (iframe.webkitRequestFullscreen) {
+            await iframe.webkitRequestFullscreen();
+          } else if (iframe.msRequestFullscreen) {
+            await iframe.msRequestFullscreen();
+          }
+          container.classList.remove("fullscreen-animating", "expanded");
+          iframe.classList.add("fullscreen-active");
+        }, 400); // match CSS transition
       } else {
         if (document.exitFullscreen) {
           document.exitFullscreen();
-        } else if (document.webkitExitFullscreen) { /* Safari */
+        } else if (document.webkitExitFullscreen) {
           document.webkitExitFullscreen();
-        } else if (document.msExitFullscreen) { /* IE11 */
+        } else if (document.msExitFullscreen) {
           document.msExitFullscreen();
         }
+        iframe.classList.remove("fullscreen-active");
       }
     });
   </script>
