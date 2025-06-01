@@ -385,6 +385,42 @@ iframe.fullscreen-active {
         iframe.classList.remove("fullscreen-active");
       }
     });
+    // Create the button element
+const cornerBtn = document.createElement('a');
+cornerBtn.href = 'https://ishaan123123-cybe.github.io/AUUX/draw-in-air.html';
+cornerBtn.textContent = 'Go to Draw in Air';
+cornerBtn.target = '_blank'; // open in new tab
+
+// Style it
+cornerBtn.style.position = 'fixed';
+cornerBtn.style.bottom = '10px';
+cornerBtn.style.right = '10px';
+cornerBtn.style.background = 'rgba(0, 255, 0, 0.7)';
+cornerBtn.style.color = '#000';
+cornerBtn.style.padding = '6px 12px';
+cornerBtn.style.borderRadius = '6px';
+cornerBtn.style.fontSize = '12px';
+cornerBtn.style.fontWeight = '600';
+cornerBtn.style.textDecoration = 'none';
+cornerBtn.style.zIndex = '1000';
+cornerBtn.style.fontFamily = 'sans-serif';
+cornerBtn.style.boxShadow = '0 0 8px rgba(0,255,0,0.8)';
+cornerBtn.style.userSelect = 'none';
+
+// Add hover effect
+cornerBtn.addEventListener('mouseenter', () => {
+  cornerBtn.style.background = 'rgba(0, 255, 0, 1)';
+  cornerBtn.style.color = '#000';
+  cornerBtn.style.boxShadow = '0 0 12px rgba(0,255,0,1)';
+});
+cornerBtn.addEventListener('mouseleave', () => {
+  cornerBtn.style.background = 'rgba(0, 255, 0, 0.7)';
+  cornerBtn.style.boxShadow = '0 0 8px rgba(0,255,0,0.8)';
+});
+
+// Add to page
+document.body.appendChild(cornerBtn);
+
   </script>
 </body>
 </html>
