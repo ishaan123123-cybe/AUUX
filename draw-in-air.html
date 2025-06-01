@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,8 +6,8 @@
   <style>
     body {
       margin: 0;
-      background: #000;
-      font-family: sans-serif;
+      background: radial-gradient(ellipse at center, #000000 0%, #050505 100%);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       overflow: hidden;
     }
 
@@ -20,16 +19,42 @@
       text-align: center;
       color: white;
       z-index: 10;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(15px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 16px;
+      padding: 20px 30px;
+      box-shadow: 0 0 20px rgba(0, 255, 170, 0.4);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-weight: 600;
+      font-size: 1.5em;
+      letter-spacing: 1px;
+      color: #00ffaa;
+    }
+
+    #status {
+      margin-bottom: 10px;
+      font-size: 0.9em;
+      color: #ccc;
     }
 
     button {
       padding: 10px 20px;
-      margin: 10px;
-      background: rgba(255, 255, 255, 0.1);
-      color: white;
-      border: 1px solid white;
+      margin: 5px;
+      background: rgba(0, 255, 170, 0.1);
+      color: #00ffaa;
+      border: 1px solid #00ffaa;
       border-radius: 8px;
       cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    button:hover {
+      background: #00ffaa;
+      color: #000;
     }
 
     canvas {
@@ -51,8 +76,14 @@
   <script>
     const canvas = document.getElementById("drawCanvas");
     const ctx = canvas.getContext("2d");
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
 
     const connectButton = document.getElementById("connectButton");
     const clearButton = document.getElementById("clearButton");
@@ -68,7 +99,7 @@
       ctx.strokeStyle = "#00FFAA";
       ctx.lineWidth = 3;
       ctx.lineCap = "round";
-      ctx.shadowBlur = 10;
+      ctx.shadowBlur = 15;
       ctx.shadowColor = "#00FFAA";
       ctx.beginPath();
       ctx.moveTo(from.x, from.y);
@@ -132,16 +163,19 @@
       const xDiff = xValue - xIdle;
       const yDiff = yValue - yIdle;
 
-      const speed = 5;
+      // Calculate dynamic speed based on joystick strength
+      const maxSpeed = 20;
+      const speedX = Math.sign(xDiff) * Math.min(Math.abs(xDiff) / 10, maxSpeed);
+      const speedY = Math.sign(yDiff) * Math.min(Math.abs(yDiff) / 10, maxSpeed);
 
       lastPos = { ...pos };
 
-      if (Math.abs(xDiff) > margin) {
-        pos.x += (xDiff > 0 ? speed : -speed);
-      }
-      if (Math.abs(yDiff) > margin) {
-        pos.y += (yDiff > 0 ? speed : -speed);
-      }
+      if (Math.abs(xDiff) > margin) pos.x += speedX;
+      if (Math.abs(yDiff) > margin) pos.y += speedY;
+
+      // Keep in bounds
+      pos.x = Math.max(0, Math.min(canvas.width, pos.x));
+      pos.y = Math.max(0, Math.min(canvas.height, pos.y));
 
       drawLine(lastPos, pos);
     }
