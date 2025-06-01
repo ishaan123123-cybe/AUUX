@@ -386,6 +386,7 @@ iframe.fullscreen-active {
       }
     });
     // Create the button element
+// First button (already have)
 const cornerBtn = document.createElement('a');
 cornerBtn.href = 'https://ishaan123123-cybe.github.io/AUUX/draw-in-air.html';
 cornerBtn.textContent = 'Go to Draw in Air';
@@ -420,6 +421,42 @@ cornerBtn.addEventListener('mouseleave', () => {
 
 // Add to page
 document.body.appendChild(cornerBtn);
+
+// --- Second button ---
+const testBtn = document.createElement('a');
+testBtn.href = 'https://ishaan123123-cybe.github.io/AUUX/test.html';
+testBtn.textContent = 'Test Joystick';
+testBtn.target = '_blank'; // open in new tab
+
+// Style it
+testBtn.style.position = 'fixed';
+testBtn.style.bottom = '10px';
+testBtn.style.left = '10px';  // bottom-left corner
+testBtn.style.background = 'rgba(0, 255, 0, 0.7)';
+testBtn.style.color = '#000';
+testBtn.style.padding = '6px 12px';
+testBtn.style.borderRadius = '6px';
+testBtn.style.fontSize = '12px';
+testBtn.style.fontWeight = '600';
+testBtn.style.textDecoration = 'none';
+testBtn.style.zIndex = '1000';
+testBtn.style.fontFamily = 'sans-serif';
+testBtn.style.boxShadow = '0 0 8px rgba(0,255,0,0.8)';
+testBtn.style.userSelect = 'none';
+
+// Add hover effect
+testBtn.addEventListener('mouseenter', () => {
+  testBtn.style.background = 'rgba(0, 255, 0, 1)';
+  testBtn.style.color = '#000';
+  testBtn.style.boxShadow = '0 0 12px rgba(0,255,0,1)';
+});
+testBtn.addEventListener('mouseleave', () => {
+  testBtn.style.background = 'rgba(0, 255, 0, 0.7)';
+  testBtn.style.boxShadow = '0 0 8px rgba(0,255,0,0.8)';
+});
+
+// Add to page
+document.body.appendChild(testBtn);
 
   </script>
 </body>
