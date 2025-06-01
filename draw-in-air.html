@@ -1,1 +1,156 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Joystick Drawing Canvas</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      font-family: sans-serif;
+      overflow: hidden;
+    }
+
+    .container {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      text-align: center;
+      color: white;
+      z-index: 10;
+    }
+
+    button {
+      padding: 10px 20px;
+      margin: 10px;
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 1px solid white;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    canvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Joystick Draw</h1>
+    <div id="status">Not Connected</div>
+    <button id="connectButton">Connect to HC-05</button>
+    <button id="clearButton">Clear Canvas</button>
+  </div>
+  <canvas id="drawCanvas"></canvas>
+
+  <script>
+    const canvas = document.getElementById("drawCanvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    const connectButton = document.getElementById("connectButton");
+    const clearButton = document.getElementById("clearButton");
+    const statusDiv = document.getElementById("status");
+
+    let port, reader, writer;
+    let decoder = new TextDecoder();
+    let lineBuffer = "";
+    let pos = { x: canvas.width / 2, y: canvas.height / 2 };
+    let lastPos = { ...pos };
+
+    function drawLine(from, to) {
+      ctx.strokeStyle = "#00FFAA";
+      ctx.lineWidth = 3;
+      ctx.lineCap = "round";
+      ctx.shadowBlur = 10;
+      ctx.shadowColor = "#00FFAA";
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    }
+
+    clearButton.addEventListener("click", () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+    });
+
+    async function connect() {
+      try {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 9600 });
+        writer = port.writable.getWriter();
+        reader = port.readable.getReader();
+        statusDiv.textContent = "Connected";
+        readData();
+      } catch (err) {
+        statusDiv.textContent = "Connection failed";
+        console.error(err);
+      }
+    }
+
+    async function readData() {
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (!value) continue;
+
+          lineBuffer += decoder.decode(value, { stream: true });
+
+          let newlineIndex;
+          while ((newlineIndex = lineBuffer.indexOf('\n')) >= 0) {
+            const line = lineBuffer.slice(0, newlineIndex).trim();
+            lineBuffer = lineBuffer.slice(newlineIndex + 1);
+
+            if (line.includes("X:") && line.includes("Y:")) {
+              handleJoystick(line);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Read error", err);
+      }
+    }
+
+    function handleJoystick(data) {
+      const parts = data.split(",");
+      if (parts.length < 2) return;
+
+      const xValue = parseInt(parts[0].split(":")[1]);
+      const yValue = parseInt(parts[1].split(":")[1]);
+
+      // Calibrate center values
+      const xIdle = 350, yIdle = 355;
+      const margin = 70;
+
+      const xDiff = xValue - xIdle;
+      const yDiff = yValue - yIdle;
+
+      const speed = 5;
+
+      lastPos = { ...pos };
+
+      if (Math.abs(xDiff) > margin) {
+        pos.x += (xDiff > 0 ? speed : -speed);
+      }
+      if (Math.abs(yDiff) > margin) {
+        pos.y += (yDiff > 0 ? speed : -speed);
+      }
+
+      drawLine(lastPos, pos);
+    }
+
+    connectButton.addEventListener("click", async () => {
+      connectButton.disabled = true;
+      await connect();
+      connectButton.disabled = false;
+    });
+  </script>
+</body>
+</html>
