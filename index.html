@@ -163,13 +163,12 @@ iframe.fullscreen-active {
     let lastDirection = "";
     let reconnectInterval;
 
-    // Variables for joystick button press timing
-    let pressStartTime = null;
-    let pressTimer = null;
-    let currentDirection = "IDLE";
+    // NEW joystick button long press state vars
+    let buttonPressedAt = null; // timestamp when button down started
+    let longPressHandled = false;
 
     function showConnecting() {
-      statusDiv.innerHTML = `<div class="spinner"></div> Connecting...`;
+      statusDiv.innerHTML = '<div class="spinner"></div> Connecting...';
     }
 
     async function connect() {
@@ -195,7 +194,7 @@ iframe.fullscreen-active {
           reconnectInterval = null;
         }
       } catch (error) {
-        statusDiv.textContent = `Error connecting`;
+        statusDiv.textContent = "Error connecting";
         connectButton.disabled = false;
       }
     }
@@ -265,87 +264,193 @@ iframe.fullscreen-active {
       const buttonStateRaw = parts[2].split(":")[1].trim();
       const buttonState = isNaN(buttonStateRaw) ? NaN : parseInt(buttonStateRaw);
 
-      statusDiv.textContent = `X: ${xValue} Y: ${yValue} Btn: ${buttonState}`;
+      statusDiv.textContent = `X: ${xValue} Y: ${yValue} Btn: ${buttonStateRaw}`;
 
-      // Determine direction based on X and Y values
+      const xIdle = 350;
+      const yIdle = 355;
+      const margin = 75;
+
+      const xDiff = xValue - xIdle;
+      const yDiff = yValue - yIdle;
+
       let direction = "IDLE";
 
-      if (xValue < 400) {
-        direction = "LEFT";
-      } else if (xValue > 600) {
-        direction = "RIGHT";
-      }
-
-      if (yValue < 400) {
-        direction = direction === "IDLE" ? "UP" : direction + "-UP";
-      } else if (yValue > 600) {
-        direction = direction === "IDLE" ? "DOWN" : direction + "-DOWN";
-      }
-
-      // Display current direction
-      directionDiv.textContent = direction;
-
-      // Detect joystick button press and long press logic
-      if (buttonState === 0) { // Button pressed (0 means pressed)
-        if (pressStartTime === null) {
-          pressStartTime = Date.now();
-
-          // Start timer to update directionDiv feedback for long press
-          pressTimer = setInterval(() => {
-            const pressedDuration = (Date.now() - pressStartTime) / 1000;
-            if (pressedDuration >= 5) {
-              directionDiv.textContent = "Long Press (5s)";
-            } else if (pressedDuration >= 3) {
-              directionDiv.textContent = "Long Press (3s)";
-            }
-          }, 100);
+      // --- NEW LONG PRESS LOGIC ---
+      if (buttonState === 0) {
+        if (buttonPressedAt === null) {
+          // Button just pressed down, store timestamp
+          buttonPressedAt = Date.now();
+          longPressHandled = false;
         }
-      } else { // Button released
-        if (pressStartTime !== null) {
-          const pressedDuration = (Date.now() - pressStartTime) / 1000;
-          clearInterval(pressTimer);
-          pressTimer = null;
-          pressStartTime = null;
+        direction = "Button Pressed!";
+      } else {
+        // Button released
+        if (buttonPressedAt !== null) {
+          const pressDuration = Date.now() - buttonPressedAt;
+          buttonPressedAt = null; // reset
 
-          // Redirect based on press duration
-          if (pressedDuration >= 5) {
-            window.location.href = "/test.html";
-          } else if (pressedDuration >= 3) {
-            window.location.href = "/draw-in-air.html";
-          } else {
-            // Short press or no press → reset direction display to last known direction
-            directionDiv.textContent = direction;
+          if (!longPressHandled) {
+            if (pressDuration > 5000) {
+              longPressHandled = true;
+              window.location.href = "https://example.com/long-press-5s"; // Replace with your URL for 5+ sec
+              return; // stop further processing
+            } else if (pressDuration > 3000) {
+              longPressHandled = true;
+              window.location.href = "https://example.com/long-press-3s"; // Replace with your URL for 3+ sec
+              return; // stop further processing
+            }
           }
         }
+
+        // If no long press redirect, determine joystick direction normally:
+        if (Math.abs(xDiff) > Math.abs(yDiff)) {
+          if (xDiff > margin) direction = "RIGHT";
+          else if (xDiff < -margin) direction = "LEFT";
+        } else {
+          if (yDiff > margin) direction = "DOWN";
+          else if (yDiff < -margin) direction = "UP";
+        }
       }
 
-      lastDirection = direction;
+      directionDiv.textContent = direction;
+
+      if (direction !== lastDirection) {
+        lastDirection = direction;
+        iframe.contentWindow.postMessage({
+          joystick: {
+            x: xValue,
+            y: yValue,
+            button: buttonState,
+            direction: direction
+          }
+        }, "*");
+      }
     }
 
-    connectButton.addEventListener("click", () => {
-      connectButton.disabled = true;
-      connect();
+    // Auto-connect silently to previously granted port (assumed to be "ROBO324")
+    async function autoConnectToROBO324() {
+      try {
+        const ports = await navigator.serial.getPorts();
+
+        for (const p of ports) {
+          // We don't have direct device name access,
+          // So for demo just connect first available port.
+          port = p;
+          await port.open({ baudRate: 9600 });
+
+          writer = port.writable.getWriter();
+          reader = port.readable.getReader();
+
+          statusDiv.textContent = "Connected (Auto) to ROBO324";
+          connectButton.style.display = "none";
+          reconnectButton.style.display = "inline-block";
+          directionDiv.textContent = "";
+
+          sendRing();
+          readData();
+
+          return true;
+        }
+        return false;
+      } catch (e) {
+        statusDiv.textContent = "Auto connect failed";
+        return false;
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      if ("serial" in navigator) {
+        const autoConnected = await autoConnectToROBO324();
+        if (!autoConnected) {
+          statusDiv.textContent = "Not Connected";
+          connectButton.style.display = "inline-block";
+          reconnectButton.style.display = "none";
+        }
+      } else {
+        statusDiv.textContent = "Web Serial API not supported";
+        connectButton.disabled = true;
+      }
     });
 
-    reconnectButton.addEventListener("click", () => {
+    connectButton.addEventListener("click", async () => {
+      connectButton.disabled = true;
+      await connect();
+      connectButton.disabled = false;
+    });
+
+    reconnectButton.addEventListener("click", async () => {
       reconnectButton.disabled = true;
-      if (port) {
-        disconnect();
+      directionDiv.textContent = "";
+      lastDirection = "";
+      if (iframe) {
+        iframe.src = iframe.src; // reload iframe scene on reconnect
       }
-      connect();
+      await connect();
       reconnectButton.disabled = false;
     });
 
     fullscreenButton.addEventListener("click", () => {
       if (!document.fullscreenElement) {
-        iframe.requestFullscreen();
-        container.classList.add('expanded');
+        container.classList.add("fullscreen-animating", "expanded");
+        setTimeout(async () => {
+          if (iframe.requestFullscreen) {
+            await iframe.requestFullscreen();
+          } else if (iframe.webkitRequestFullscreen) {
+            await iframe.webkitRequestFullscreen();
+          } else if (iframe.msRequestFullscreen) {
+            await iframe.msRequestFullscreen();
+          }
+          container.classList.remove("fullscreen-animating", "expanded");
+          iframe.classList.add("fullscreen-active");
+        }, 400); // match CSS transition
       } else {
-        document.exitFullscreen();
-        container.classList.remove('expanded');
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        } else if (document.webkitExitFullscreen) {
+          document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+          document.msExitFullscreen();
+        }
+        iframe.classList.remove("fullscreen-active");
       }
     });
+    // Create the button element
+// First button (already have)
+const cornerBtn = document.createElement('a');
+cornerBtn.href = 'https://ishaan123123-cybe.github.io/AUUX/draw-in-air.html';
+cornerBtn.textContent = 'Go to Draw in Air';
+cornerBtn.target = '_blank'; // open in new tab
 
+// Style it
+cornerBtn.style.position = 'fixed';
+cornerBtn.style.bottom = '10px';
+cornerBtn.style.right = '10px';
+cornerBtn.style.background = 'rgba(0, 255, 0, 0.7)';
+cornerBtn.style.color = '#000';
+cornerBtn.style.padding = '6px 12px';
+cornerBtn.style.borderRadius = '6px';
+cornerBtn.style.fontSize = '12px';
+cornerBtn.style.fontWeight = '600';
+cornerBtn.style.textDecoration = 'none';
+cornerBtn.style.zIndex = '1000';
+cornerBtn.style.fontFamily = 'sans-serif';
+cornerBtn.style.boxShadow = '0 0 8px rgba(0,255,0,0.8)';
+cornerBtn.style.userSelect = 'none';
+
+// Add hover effect
+cornerBtn.addEventListener('mouseenter', () => {
+  cornerBtn.style.background = 'rgba(0, 255, 0, 1)';
+  cornerBtn.style.color = '#000';
+  cornerBtn.style.boxShadow = '0 0 12px rgba(0,255,0,1)';
+});
+cornerBtn.addEventListener('mouseleave', () => {
+  cornerBtn.style.background = 'rgba(0, 255, 0, 0.7)';
+  cornerBtn.style.color = '#000';
+  cornerBtn.style.boxShadow = '0 0 8px rgba(0,255,0,0.8)';
+});
+
+// Append to body
+document.body.appendChild(cornerBtn);
   </script>
 </body>
 </html>
