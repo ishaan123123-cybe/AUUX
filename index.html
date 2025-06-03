@@ -1,142 +1,351 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" >
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PS5-Style Joystick UI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />  
+  <title>Joystick Controller</title>
   <style>
-    body {
-      margin: 0;
-      background: linear-gradient(to bottom right, #0a0a0f, #1f1f2e);
-      font-family: 'Segoe UI', sans-serif;
-      color: #f2f2f2;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      height: 100vh;
-      overflow: hidden;
-    }
+/* Container with translucent glass effect */
+.container {
+  max-width: 480px;
+  margin: 40px auto;
+  padding: 30px 40px;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.15); /* translucent white */
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15);
+  color: #f0f0f5;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+    Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  text-align: center;
+  user-select: none;
+}
 
-    .main-button {
-      position: relative;
-      width: 200px;
-      height: 60px;
-      border: none;
-      border-radius: 30px;
-      background: rgba(255, 255, 255, 0.08);
-      backdrop-filter: blur(12px);
-      color: #00ffff;
-      font-size: 1.1rem;
-      font-weight: 600;
-      letter-spacing: 1px;
-      box-shadow: 0 4px 14px rgba(0, 255, 255, 0.3);
-      cursor: pointer;
-      transition: all 0.3s ease;
-      user-select: none;
-      overflow: hidden;
-    }
+/* Heading */
+h1 {
+  font-weight: 600;
+  font-size: 2rem;
+  margin-bottom: 25px;
+  color: #e0e0e5;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
 
-    .main-button:hover {
-      background: rgba(0, 255, 255, 0.15);
-      box-shadow: 0 6px 24px rgba(0, 255, 255, 0.5);
-      color: white;
-    }
+/* Status and Direction text */
+#status {
+  font-weight: 500;
+  font-size: 1.1rem;
+  margin-bottom: 15px;
+  color: #d4d4d8;
+  min-height: 42px; /* to hold spinner */
+}
 
-    .progress-ring {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 56px;
-      height: 56px;
-      transform: translate(-50%, -50%) rotate(-90deg);
-      pointer-events: none;
-    }
+#direction {
+  font-weight: 400;
+  font-size: 1rem;
+  margin-bottom: 30px;
+  color: #c7c7cc;
+  min-height: 20px;
+  letter-spacing: 0.03em;
+}
 
-    .progress-ring circle {
-      fill: none;
-      stroke-width: 6;
-      stroke: #00ffff;
-      stroke-linecap: round;
-      stroke-dasharray: 157;
-      stroke-dashoffset: 157;
-      transition: stroke-dashoffset 0.1s linear;
-    }
+/* Buttons with Apple-style rounded corners, subtle shadows, and translucent background */
+button {
+  appearance: none;
+  background: rgba(255, 255, 255, 0.25);
+  border: none;
+  border-radius: 20px;
+  color: #007aff;
+  font-weight: 600;
+  font-size: 1.1rem;
+  padding: 14px 0;
+  width: 100%;
+  max-width: 240px;
+  cursor: pointer;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  user-select: none;
+  box-shadow: 0 8px 20px rgba(0, 122, 255, 0.2);
+  margin: 0 auto 30px;
+  display: block;
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
 
-    .status-label {
-      margin-top: 20px;
-      color: #ccc;
-      font-size: 0.95rem;
-      height: 20px;
-    }
+button:hover:not(:disabled) {
+  background: rgba(0, 122, 255, 0.25);
+  box-shadow: 0 12px 28px rgba(0, 122, 255, 0.35);
+  color: white;
+}
+
+button:disabled {
+  background: rgba(255, 255, 255, 0.1);
+  cursor: default;
+  box-shadow: none;
+  color: #8e8e93;
+}
+
+/* Iframe with rounded corners, subtle shadow, and translucent background */
+iframe {
+  border-radius: 28px;
+  border: none;
+  width: 100%;
+  max-width: 480px;
+  height: 340px;
+  box-shadow: 0 20px 48px rgba(0, 122, 255, 0.25);
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
+  overflow: hidden;
+  transition: box-shadow 0.4s ease, border-radius 0.4s ease;
+}
+
+/* Spinner */
+.spinner {
+  margin: 0 auto 10px;
+  width: 36px;
+  height: 36px;
+  border: 4px solid rgba(0, 122, 255, 0.3);
+  border-top-color: #007aff;
+  border-radius: 50%;
+  animation: spin 1.2s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Container smooth scale animation for fullscreen */
+.container.fullscreen-animating {
+  transition: transform 0.4s ease, box-shadow 0.4s ease;
+  transform-origin: center center;
+}
+
+.container.expanded {
+  transform: scale(1.1);
+  box-shadow: 0 30px 60px rgba(0, 122, 255, 0.5);
+}
+
+/* Animate iframe on fullscreen */
+iframe.fullscreen-active {
+  border-radius: 0;
+  box-shadow: none;
+}
+
   </style>
 </head>
 <body>
+  <div class="container">
+    <h1>Joystick Controller</h1>
+    <div id="status">Not Connected</div>
+    <div id="direction"></div>
 
-  <button id="longPressBtn" class="main-button">
-    Hold to Navigate
-    <svg class="progress-ring">
-      <circle r="25" cx="28" cy="28"></circle>
-    </svg>
-  </button>
-  <div id="statusLabel" class="status-label"></div>
+    <button id="connectButton">Connect to HC-05</button>
+    <button id="reconnectButton" style="display:none;">Reconnect</button>
+    <button id="fullscreenButton">Fullscreen Game</button>
+  </div>
+
+  <iframe id="gameIframe" src="https://html-classic.itch.zone/html/13879618/index.html" title="GDevelop Game"></iframe>
 
   <script>
-    const button = document.getElementById('longPressBtn');
-    const circle = document.querySelector('.progress-ring circle');
-    const status = document.getElementById('statusLabel');
-    const fullLength = 157; // 2πr = 2π*25
+    const connectButton = document.getElementById("connectButton");
+    const reconnectButton = document.getElementById("reconnectButton");
+    const fullscreenButton = document.getElementById("fullscreenButton");
+    const statusDiv = document.getElementById("status");
+    const directionDiv = document.getElementById("direction");
+    const iframe = document.getElementById("gameIframe");
+    const container = document.querySelector('.container');
 
-    let holdStart = null;
-    let interval;
-    let isHolding = false;
+    let port;
+    let reader;
+    let writer;
+    let decoder = new TextDecoder();
+    let lineBuffer = "";
+    let lastDirection = "";
+    let reconnectInterval;
 
-    button.addEventListener('mousedown', () => {
-      holdStart = Date.now();
-      isHolding = true;
-      status.textContent = 'Hold...';
-      interval = setInterval(() => {
-        const elapsed = (Date.now() - holdStart) / 1000;
-        const progress = Math.min(elapsed / 5, 1);
-        circle.style.strokeDashoffset = fullLength * (1 - progress);
+    // Variables for joystick button press timing
+    let pressStartTime = null;
+    let pressTimer = null;
+    let currentDirection = "IDLE";
 
-        if (elapsed >= 3 && elapsed < 5) {
-          status.textContent = 'Release now for: Draw in Air';
-        } else if (elapsed >= 5) {
-          status.textContent = 'Release now for: Test Joystick';
+    function showConnecting() {
+      statusDiv.innerHTML = `<div class="spinner"></div> Connecting...`;
+    }
+
+    async function connect() {
+      try {
+        showConnecting();
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 9600 });
+
+        writer = port.writable.getWriter();
+        reader = port.readable.getReader();
+
+        statusDiv.textContent = "Connected";
+        connectButton.style.display = "none";
+        reconnectButton.style.display = "inline-block";
+        directionDiv.textContent = "";
+
+        sendRing();
+        readData();
+
+        // Clear reconnect attempts on success
+        if (reconnectInterval) {
+          clearInterval(reconnectInterval);
+          reconnectInterval = null;
         }
-      }, 50);
-    });
+      } catch (error) {
+        statusDiv.textContent = `Error connecting`;
+        connectButton.disabled = false;
+      }
+    }
 
-    button.addEventListener('mouseup', () => {
-      if (!isHolding) return;
-      const heldFor = (Date.now() - holdStart) / 1000;
-      clearInterval(interval);
-      circle.style.strokeDashoffset = fullLength;
-      status.textContent = '';
+    async function sendRing() {
+      if (!writer) return;
+      try {
+        const encodedData = new TextEncoder().encode("Ring");
+        await writer.write(encodedData);
+      } catch {}
+    }
 
-      if (heldFor >= 5) {
-        window.location.href = '/test.html';
-      } else if (heldFor >= 3) {
-        window.location.href = '/draw-in-air.html';
+    async function readData() {
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (!value) continue;
+
+          lineBuffer += decoder.decode(value, { stream: true });
+
+          let newlineIndex;
+          while ((newlineIndex = lineBuffer.indexOf('\n')) >= 0) {
+            const line = lineBuffer.slice(0, newlineIndex).trim();
+            lineBuffer = lineBuffer.slice(newlineIndex + 1);
+
+            if (line.includes("X:") && line.includes("Y:") && line.includes("Button:")) {
+              processJoystickData(line);
+            }
+          }
+        }
+      } catch {
+        disconnect();
+      }
+      disconnect();
+    }
+
+    function disconnect() {
+      statusDiv.textContent = "Disconnected";
+      connectButton.style.display = "none";
+      reconnectButton.style.display = "inline-block";
+      directionDiv.textContent = "";
+      lastDirection = "";
+      try {
+        if (reader) reader.cancel();
+        if (writer) writer.releaseLock();
+        if (port) port.close();
+      } catch {}
+      reader = null;
+      writer = null;
+      port = null;
+
+      // Start auto reconnect every 5 sec
+      if (!reconnectInterval) {
+        reconnectInterval = setInterval(() => {
+          reconnectButton.click();
+        }, 5000);
+      }
+    }
+
+    function processJoystickData(data) {
+      const parts = data.split(",");
+      if (parts.length < 3) return;
+
+      const xValue = parseInt(parts[0].split(":")[1].trim());
+      const yValue = parseInt(parts[1].split(":")[1].trim());
+      const buttonStateRaw = parts[2].split(":")[1].trim();
+      const buttonState = isNaN(buttonStateRaw) ? NaN : parseInt(buttonStateRaw);
+
+      statusDiv.textContent = `X: ${xValue} Y: ${yValue} Btn: ${buttonState}`;
+
+      // Determine direction based on X and Y values
+      let direction = "IDLE";
+
+      if (xValue < 400) {
+        direction = "LEFT";
+      } else if (xValue > 600) {
+        direction = "RIGHT";
       }
 
-      isHolding = false;
+      if (yValue < 400) {
+        direction = direction === "IDLE" ? "UP" : direction + "-UP";
+      } else if (yValue > 600) {
+        direction = direction === "IDLE" ? "DOWN" : direction + "-DOWN";
+      }
+
+      // Display current direction
+      directionDiv.textContent = direction;
+
+      // Detect joystick button press and long press logic
+      if (buttonState === 0) { // Button pressed (0 means pressed)
+        if (pressStartTime === null) {
+          pressStartTime = Date.now();
+
+          // Start timer to update directionDiv feedback for long press
+          pressTimer = setInterval(() => {
+            const pressedDuration = (Date.now() - pressStartTime) / 1000;
+            if (pressedDuration >= 5) {
+              directionDiv.textContent = "Long Press (5s)";
+            } else if (pressedDuration >= 3) {
+              directionDiv.textContent = "Long Press (3s)";
+            }
+          }, 100);
+        }
+      } else { // Button released
+        if (pressStartTime !== null) {
+          const pressedDuration = (Date.now() - pressStartTime) / 1000;
+          clearInterval(pressTimer);
+          pressTimer = null;
+          pressStartTime = null;
+
+          // Redirect based on press duration
+          if (pressedDuration >= 5) {
+            window.location.href = "/test.html";
+          } else if (pressedDuration >= 3) {
+            window.location.href = "/draw-in-air.html";
+          } else {
+            // Short press or no press → reset direction display to last known direction
+            directionDiv.textContent = direction;
+          }
+        }
+      }
+
+      lastDirection = direction;
+    }
+
+    connectButton.addEventListener("click", () => {
+      connectButton.disabled = true;
+      connect();
     });
 
-    button.addEventListener('mouseleave', () => {
-      // Cancel if mouse leaves button
-      if (isHolding) {
-        clearInterval(interval);
-        circle.style.strokeDashoffset = fullLength;
-        status.textContent = '';
-        isHolding = false;
+    reconnectButton.addEventListener("click", () => {
+      reconnectButton.disabled = true;
+      if (port) {
+        disconnect();
+      }
+      connect();
+      reconnectButton.disabled = false;
+    });
+
+    fullscreenButton.addEventListener("click", () => {
+      if (!document.fullscreenElement) {
+        iframe.requestFullscreen();
+        container.classList.add('expanded');
+      } else {
+        document.exitFullscreen();
+        container.classList.remove('expanded');
       }
     });
 
-    // Reset SVG stroke on load
-    circle.style.strokeDashoffset = fullLength;
   </script>
-
 </body>
 </html>
